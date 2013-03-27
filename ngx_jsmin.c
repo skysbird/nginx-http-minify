@@ -34,7 +34,7 @@ static int   theLookahead = EOF;
 static int   theX = EOF;
 static int   theY = EOF;
 
-int ngx_getc(ngx_buf_t *in){
+static int ngx_getc(ngx_buf_t *in){
     if (in->pos > in->end){
        return EOF;
     }
@@ -43,7 +43,7 @@ int ngx_getc(ngx_buf_t *in){
     return c;
 }
 
-void ngx_putc(u_char c,ngx_buf_t *out){
+static void ngx_putc(u_char c,ngx_buf_t *out){
     if(out->pos<=out->end){
  	out->pos[0] = c;
 	++out->pos;
@@ -309,21 +309,4 @@ jsmin(ngx_buf_t *in,ngx_buf_t *out)
 }
 
 
-/* main -- Output any command line arguments as comments
-        and then minify the input.
-*/
-/*extern int
-main(int argc, char* argv[])
-{
-    int i;
-    for (i = 1; i < argc; i += 1) {
-        fprintf(out, "// %s\n", argv[i]);
-    }
-    jsmin();
-    return 0;
-}*/
 
-/*void test2(){
-	printf("shit\n");
-	jsmin();
-}*/

@@ -2,6 +2,7 @@
 #include <ngx_core.h>
 #include <ngx_http.h>
 #include "ngx_jsmin.h"
+#include "ngx_cssmin.h"
 
 
 
@@ -190,7 +191,7 @@ ngx_http_minify_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
 	    continue;
 	}
 
- 	ngx_http_minify_buf(b,r,&of);	
+     	ngx_http_minify_buf(b,r,&of);	
         cl = cl->next;
 
     }
@@ -257,7 +258,7 @@ ngx_http_minify_buf(ngx_buf_t *buf,ngx_http_request_t *r,ngx_open_file_info_t *o
     
         b = ngx_calloc_buf(r->pool); 
         if (b == NULL) {
-            //return NGX_HTTP_INTERNAL_SERVER_ERROR;
+            return NGX_HTTP_INTERNAL_SERVER_ERROR;
         }
     
         b->start = ngx_palloc(r->pool, size);
@@ -267,8 +268,15 @@ ngx_http_minify_buf(ngx_buf_t *buf,ngx_http_request_t *r,ngx_open_file_info_t *o
         b->temporary = 1;
     
         min_dst = b;
-        jsmin(dst,min_dst);
-
+        if (ngx_strcmp(r->headers_out.content_type.data,ngx_http_minify_default_types[0].data)==0){
+            jsmin(dst,min_dst);
+        }
+        else if (ngx_strcmp(r->headers_out.content_type.data,ngx_http_minify_default_types[1].data)==0){
+            cssmin(dst,min_dst);
+        }
+        else{
+            return NGX_HTTP_INTERNAL_SERVER_ERROR;
+        }
         buf->start = min_dst->start;     
         buf->pos = min_dst->pos;
         buf->last = min_dst->last;
