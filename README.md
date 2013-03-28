@@ -37,3 +37,31 @@ It enables the minify in a given context.
 
 Defines the [MIME types](http://en.wikipedia.org/wiki/MIME_type) which
 can be concatenated in a given context.
+
+## Unit Test
+
+The test module is test-nginx from [agentzh project](https://github.com/agentzh/test-nginx). There are two files for minify module in the directory test/t:
+
+**test_minify_js.t** is the unit test file for jsmin
+
+**test_minify_css.t** is the unit test file for cssmin
+
+###Run test
+
+1 install the test-nginx module:
+
+     cd test
+     perl Makefile.PL
+     make
+     make install
+
+2 run test:
+
+     PATH=/usr/local/nginx/sbin/:$PATH prove t/test_minify_js.t
+
+     PATH=/usr/local/nginx/sbin/:$PATH prove t/test_minify_css.t
+
+
+   
+
+

@@ -134,7 +134,7 @@ sendfile on;
 >>> a.js
 --- request
     GET /a.js
---- response_body: 
+--- response_body 
 
  
 
