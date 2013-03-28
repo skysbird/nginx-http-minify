@@ -111,6 +111,7 @@ ngx_http_minify_header_filter(ngx_http_request_t *r)
     return ngx_http_next_header_filter(r);
 }
 
+static ngx_int_t ngx_http_minify_buf_in_memory(ngx_buf_t *buf,ngx_http_request_t *r);
 
 static ngx_int_t
 ngx_http_minify_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
@@ -136,69 +137,79 @@ ngx_http_minify_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
 
     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                    "http minify filter");
-    cl = in; 
-    while (cl) {
-        ngx_memzero(&of, sizeof(ngx_open_file_info_t));
 
-        of.read_ahead = ccf->read_ahead;
-        of.directio = ccf->directio;
-        of.valid = ccf->open_file_cache_valid;
-        of.min_uses = ccf->open_file_cache_min_uses;
-        of.errors = ccf->open_file_cache_errors;
-        of.events = ccf->open_file_cache_events;
-
+    for (cl = in; cl; cl = cl->next) {
         b = cl->buf;
-        filename = &cl->buf->file->name;
-        if (ngx_open_cached_file(ccf->open_file_cache, filename, &of, r->pool)
-                != NGX_OK)
-            {
-                switch (of.err) {
 
-                case 0:
-                    return NGX_HTTP_INTERNAL_SERVER_ERROR;
+        if (cl->buf->in_file){
+            ngx_memzero(&of, sizeof(ngx_open_file_info_t));
 
-                case NGX_ENOENT:
-                case NGX_ENOTDIR:
-                case NGX_ENAMETOOLONG:
+            of.read_ahead = ccf->read_ahead;
+            of.directio = ccf->directio;
+            of.valid = ccf->open_file_cache_valid;
+            of.min_uses = ccf->open_file_cache_min_uses;
+            of.errors = ccf->open_file_cache_errors;
+            of.events = ccf->open_file_cache_events;
 
-                    level = NGX_LOG_ERR;
-                    rc = NGX_HTTP_NOT_FOUND;
-                    break;
+            filename = &cl->buf->file->name;
+            if (ngx_open_cached_file(ccf->open_file_cache, filename, &of, r->pool)
+                    != NGX_OK)
+                {
+                    switch (of.err) {
 
-                case NGX_EACCES:
+                    case 0:
+                        return NGX_HTTP_INTERNAL_SERVER_ERROR;
 
-                    level = NGX_LOG_ERR;
-                    rc = NGX_HTTP_FORBIDDEN;
-                    break;
+                    case NGX_ENOENT:
+                    case NGX_ENOTDIR:
+                    case NGX_ENAMETOOLONG:
 
-                default:
+                        level = NGX_LOG_ERR;
+                        rc = NGX_HTTP_NOT_FOUND;
+                        break;
 
-                    level = NGX_LOG_CRIT;
-                    rc = NGX_HTTP_INTERNAL_SERVER_ERROR;
-                    break;
+                    case NGX_EACCES:
+
+                        level = NGX_LOG_ERR;
+                        rc = NGX_HTTP_FORBIDDEN;
+                        break;
+
+                    default:
+
+                        level = NGX_LOG_CRIT;
+                        rc = NGX_HTTP_INTERNAL_SERVER_ERROR;
+                        break;
+                    }
+
+                    if (rc != NGX_HTTP_NOT_FOUND || ccf->log_not_found) {
+                        ngx_log_error(level, r->connection->log, of.err,
+                                      "%s \"%V\" failed", of.failed, filename);
+                    }
+
+
+                    return rc;
                 }
 
-                if (rc != NGX_HTTP_NOT_FOUND || ccf->log_not_found) {
-                    ngx_log_error(level, r->connection->log, of.err,
-                                  "%s \"%V\" failed", of.failed, filename);
-                }
-
-
-                return rc;
+            if (!of.is_file) {
+                ngx_log_error(NGX_LOG_CRIT, r->connection->log, ngx_errno,
+                              "\"%V\" is not a regular file", filename);
+                return NGX_HTTP_NOT_FOUND;
             }
 
-        if (!of.is_file) {
-            ngx_log_error(NGX_LOG_CRIT, r->connection->log, ngx_errno,
-                          "\"%V\" is not a regular file", filename);
-            return NGX_HTTP_NOT_FOUND;
-        }
+            if (of.size == 0) {
+                continue;
+            }
 
-        if (of.size == 0) {
-            continue;
-        }
+            ngx_http_minify_buf(b,r,&of);    
 
-        ngx_http_minify_buf(b,r,&of);    
-        cl = cl->next;
+        } else {
+
+           if (b->pos == NULL) {
+                continue;
+           }
+
+           ngx_http_minify_buf_in_memory(b,r); 
+        }
 
     }
 
@@ -206,6 +217,56 @@ ngx_http_minify_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
 
 }
 
+static ngx_int_t 
+ngx_http_minify_buf_in_memory(ngx_buf_t *buf,ngx_http_request_t *r)
+{
+    ngx_buf_t   *b = NULL, *dst = NULL, *min_dst = NULL;
+    ngx_int_t size;
+
+    size = buf->end - buf->start;
+
+    dst = buf;
+    dst->end[0] = 0;
+    
+    b = ngx_calloc_buf(r->pool); 
+    if (b == NULL) {
+        return NGX_HTTP_INTERNAL_SERVER_ERROR;
+    }
+    
+    b->start = ngx_palloc(r->pool, size);
+    b->pos = b->start;
+    b->last = b->start;
+    b->end = b->last + size;
+    b->temporary = 1;
+    
+    min_dst = b;
+    if (ngx_strcmp(r->headers_out.content_type.data,
+                   ngx_http_minify_default_types[0].data) 
+        == 0)
+    {
+        jsmin(dst,min_dst);
+
+    } else if (ngx_strcmp(r->headers_out.content_type.data, 
+                          ngx_http_minify_default_types[1].data) 
+               == 0)
+    {
+        cssmin(dst,min_dst);
+
+    } else {
+        return NGX_HTTP_INTERNAL_SERVER_ERROR;
+    }
+
+    buf->start = min_dst->start;     
+    buf->pos = min_dst->pos;
+    buf->last = min_dst->last;
+    buf->end = min_dst->end;
+    buf->memory = 1;
+    buf->in_file = 0;
+    
+
+    return NGX_OK;
+
+}
 
 static ngx_int_t 
 ngx_http_minify_buf(ngx_buf_t *buf,ngx_http_request_t *r,
