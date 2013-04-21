@@ -125,6 +125,7 @@ NGX_ALL_MODULES="
     ngx_http_addition_filter_module
     ngx_http_userid_filter_module
     ngx_http_footer_filter_module
+    ngx_http_minify_filter_module
     ngx_http_headers_filter_module
     ngx_http_copy_filter_module
     ngx_http_range_body_filter_module
@@ -208,6 +209,7 @@ HTTP_UPSTREAM_CHECK=YES
 HTTP_UPSTREAM_LEAST_CONN=YES
 HTTP_UPSTREAM_SESSION_STICKY=YES
 HTTP_UPSTREAM_KEEPALIVE=YES
+HTTP_MINIFY=YES
 
 # STUB
 HTTP_STUB_STATUS=YES
@@ -249,6 +251,7 @@ HTTP_USER_AGENT_SHARED=NO
 HTTP_UPSTREAM_IP_HASH_SHARED=NO
 HTTP_UPSTREAM_LEAST_CONN_SHARED=NO
 HTTP_UPSTREAM_SESSION_STICKY_SHARED=NO
+HTTP_MINIFY_SHARED=NO
 
 MAIL=NO
 MAIL_SSL=NO
