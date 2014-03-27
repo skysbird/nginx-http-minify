@@ -275,6 +275,7 @@ ngx_http_minify_buf(ngx_buf_t *buf,ngx_http_request_t *r,
     ngx_buf_t   *b = NULL, *dst = NULL, *min_dst = NULL;
     ngx_int_t    size;
     ngx_file_t  *src_file ;
+    ssize_t n;
 
     src_file =  ngx_pcalloc(r->pool, sizeof(ngx_file_t));
     if (src_file == NULL) {
