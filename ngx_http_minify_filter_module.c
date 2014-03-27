@@ -311,7 +311,7 @@ ngx_http_minify_buf(ngx_buf_t *buf,ngx_http_request_t *r,
                                    ctx->pool);
 
              if (n == NGX_AGAIN) {
-             ctx->aio_handler(ctx, src->file);
+             ctx->aio_handler(ctx, src_file);
              return NGX_AGAIN;
              }
     
